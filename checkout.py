@@ -1,12 +1,14 @@
+"""Checkout module"""
+
 import config
-import json
-
-from join import build_from_logs
-from version import get_version, version_logs, new_version
-from stash import stash
+import command
+import parsing
+from version import get_version, create_version, get_version_logs
 
 
-class CheckoutCommand:
+class CheckoutCommand(command.IRunnable):
+    """Checkout command"""
+
     def __init__(self, subparsers):
         self.parser = subparsers.add_parser(
             "checkout", help="Checkout to new or existing version"
@@ -17,43 +19,73 @@ class CheckoutCommand:
         self.parser.add_argument(
             "-f",
             "--from-version",
-            help="Name of the version from which is being created, is ignored if branch already exists. If provided non existent, creates empty. If not provided creates from current.",
+            help="""
+                Name of the version from which is being created.
+                Is ignored if branch already exists.
+                If provided non existent, creates empty. If not provided creates from current.
+            """,
         )
         self.parser.set_defaults(func=self.run)
 
     def run(self, args):
-        checkout(version=args.version, from_version=args.from_version)
+        checkout(version_name=args.version, from_version_name=args.from_version)
 
 
-def update_files(version_name: str, data: dict):
-    for file, logs in version_logs(version_name, data).items():
-        if not len(logs):
-            continue
+def checkout(
+    version_name: str,
+    from_version_name: str = None,
+    ignore_current_version: bool = False,
+):
+    """Checkout to new branch or create new branch
+
+    Can specify from which version is being creating by placing it as following"""
+    with open(config.path_meta, "r+", encoding=config.ENCODING) as file:
+        metadata = config.deserialize_metadata(file)
+
+        if version_name == metadata.current_version and not ignore_current_version:
+            print(f"Already on version {version_name}")
+            return
+
+        version = get_version(version_name, metadata)
+
+        if version is None:
+            version = create_version(version_name)
+
+            if from_version_name is None:
+                metadata.versions.append(version)
+            else:
+                index = next(
+                    (
+                        index
+                        for (index, version) in enumerate(metadata.versions)
+                        if version.name == from_version_name
+                    ),
+                    None,
+                )
+
+                if index is None:
+                    print(f"Version {from_version_name} does not exist")
+                    return
+
+                metadata.versions.insert(index + 1, version)
+
         else:
-            with open(file, "w") as f:
-                for line in build_from_logs(logs):
-                    f.write(line)
+            # stash(metadata)
+            update_files(version_name, metadata)
+
+        metadata.current_version = version_name
+
+        file.seek(0)
+        file.write(config.serialize_metadata(metadata))
+        file.truncate()
 
 
-def checkout(version: str, from_version: str = None):
-    with open(config.path_meta, "r+") as f:
-        data = json.load(f)
+def update_files(version_name: str, metadata: config.dataobjects.Metadata):
+    """Update files conent based on checked out version"""
+    version_logs = get_version_logs(version_name=version_name, metadata=metadata)
 
-        is_version = get_version(version, data)
-
-        if is_version == None:
-            id = new_version(version, from_version, data)
-
-            if id == None:
-                print("error while creaing new version")
-                return
-
-        if not is_version == None and not version == data["current_version"]:
-            stash(data)
-            update_files(version, data)
-
-        data["current_version"] = version
-
-        f.seek(0)
-        json.dump(data, f, indent=4)
-        f.truncate()
+    for str_file, logs in version_logs.items():
+        if logs:
+            with open(str_file, "w", encoding=config.ENCODING) as file:
+                for line in parsing.list_from_logs(logs):
+                    file.write(line)

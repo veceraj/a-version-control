@@ -6,7 +6,7 @@ REMOVE = "remove"
 
 def removeRestFirst(first: list, changes: list, i, j, is_print: bool) -> list:
     while i < len(first):
-        is_print and config.printRemove(first[i])
+        is_print and config.print_remove(first[i])
         changes.append((REMOVE, j, None))
         i += 1
 
@@ -16,7 +16,7 @@ def removeRestFirst(first: list, changes: list, i, j, is_print: bool) -> list:
 def addRestSecond(second: list, changes: list, i, j, is_print: bool) -> list:
     numAdded = 0
     while j < len(second):
-        is_print and config.printAdd(second[j])
+        is_print and config.print_add(second[j])
         changes.append((ADD, i + numAdded, second[j]))
         j += 1
         numAdded += 1
@@ -50,7 +50,7 @@ def diff(first: list, second: list, is_print: bool = False) -> list:
             return removeRestFirst(first, changes, i, j, is_print)
 
         if first[i] == second[j]:
-            is_print and config.printEqual(first[i])
+            is_print and config.print_equal(first[i])
             i += 1
             j += 1
             continue
@@ -58,14 +58,14 @@ def diff(first: list, second: list, is_print: bool = False) -> list:
         foundIndex = findInSecondFromIndex(first[i], second, j)
 
         if foundIndex == None:
-            is_print and config.printRemove(first[i])
+            is_print and config.print_remove(first[i])
             changes.append((REMOVE, i - numRemoved + numAdded, None))
             i += 1
             numRemoved += 1
         else:
             localNumAdded = 0
             for k in range(j, foundIndex):
-                is_print and config.printAdd(second[k])
+                is_print and config.print_add(second[k])
                 changes.append((ADD, j + localNumAdded, second[k]))
                 localNumAdded += 1
 

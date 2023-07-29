@@ -1,12 +1,16 @@
+"""Diff module"""
+
 import config
-import json
+import command
+import parsing
+import version
 from _diff import diff as _diff
 from _patch import patch
-from join import build_from_logs
-from version import file_version_logs
 
 
-class DiffCommand:
+class DiffCommand(command.IRunnable):
+    """Diff command"""
+
     def __init__(self, subparsers):
         self.parser = subparsers.add_parser(
             "diff", help="Diff between two version for specified file"
@@ -67,21 +71,31 @@ def diff(
 
     if printPatch:
         patched = patch(first, log)
-        # print(patched == second)
         print("".join(patched))
 
     return log
 
 
-def diff_versions(nameFirst: str, nameSecond: str, file: str):
-    with open(config.path_meta, "r+") as f:
-        data = json.load(f)
+def diff_versions(name_first: str, name_second: str, source: str):
+    """Print diff between two versions"""
+    with open(config.path_meta, "r+", encoding=config.ENCODING) as file:
+        metadata = config.deserialize_metadata(file)
 
-        logsFirst = file_version_logs(file=file, version_name=nameFirst, data=data)
-        logsSecond = file_version_logs(file=file, version_name=nameSecond, data=data)
+        logs_first = version.get_file_version_logs(
+            file=source, version_name=name_first, metadata=metadata
+        )
+        logs_second = version.get_file_version_logs(
+            file=source, version_name=name_second, metadata=metadata
+        )
 
-        old = build_from_logs(logsFirst)
-        new = build_from_logs(logsSecond)
-        log = _diff(old, new, is_print=True)
+        print_diff_from_logs(logs_first, logs_second)
 
-    return log
+
+def print_diff_from_logs(
+    logs_first: list[config.dataobjects.Log], logs_second: list[config.dataobjects.Log]
+) -> None:
+    """Print changes from list of logs"""
+    list_first = parsing.list_from_logs(logs_first)
+    list_second = parsing.list_from_logs(logs_second)
+
+    _diff(list_first, list_second, is_print=True)

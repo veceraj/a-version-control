@@ -1,14 +1,19 @@
-import config
-import helper
-import json
+"""Commit module"""
+
 import uuid
+from copy import deepcopy
 from datetime import datetime
-from pathlib import Path
-from version import get_version, get_version_name
-from _diff import diff
+import config
+import command
+import dataobjects
+import diff
+import inverse
+import version
 
 
-class CommitCommand:
+class CommitCommand(command.IRunnable):
+    """Commit command"""
+
     def __init__(self, subparsers):
         self.parser = subparsers.add_parser(
             "commit", help="Commit stage with message to specified versions"
@@ -22,160 +27,137 @@ class CommitCommand:
         self.parser.add_argument(
             "-m", "--message", required=True, help="Message for the commit"
         )
-        self.parser.add_argument(
+
+        group = self.parser.add_mutually_exclusive_group(required=True)
+
+        group.add_argument(
             "-v",
             "--versions",
             nargs="+",
-            required=True,
             help="Versions to apply the commits to",
         )
+        group.add_argument(
+            "-all",
+            "--all-versions",
+            action="store_true",
+            help="Apply to current version and all following",
+        )
+
         self.parser.set_defaults(func=self.run)
 
     def run(self, args):
-        commit(message=args.message, versions=args.versions, dry_run=args.dry_run)
-
-
-# TODO: refactor this function into smaller parts after deciding reusability of functions
-def commit_to_version(version_name: str, data: dict, message: str, dry_run: bool):
-    version = get_version(version_name, data)
-
-    if version == None:
-        print(f"\nVersion {version_name} does not exist.")
-        return
-
-    target_commit_ids = version["logs"]
-
-    if dry_run:
-        print(f"\nVersion: {version_name}")
-        target_commit_logs = helper.commit_logs_from_commit_ids(target_commit_ids, data)
-        grouped_target = helper.group_by_key(target_commit_logs, "source")
-
-    current_version = get_version(get_version_name(), data)
-    current_commit_ids = current_version["logs"]
-
-    invert_commit_ids = [id for id in current_commit_ids if id not in target_commit_ids]
-    add_commit_ids = [id for id in target_commit_ids if id not in current_commit_ids]
-
-    # TODO: check if it should be reversed
-    invert_commit_logs = helper.commit_logs_from_commit_ids(invert_commit_ids, data)
-    invert_commit_logs.reverse()
-
-    add_commit_logs = helper.commit_logs_from_commit_ids(add_commit_ids, data)
-
-    grouped_invert = helper.group_by_key(invert_commit_logs, "source")
-    grouped_add = helper.group_by_key(add_commit_logs, "source")
-
-    grouped_stage = helper.group_by_key(data["stage"], "source")
-
-    calculated_commit_logs = []
-
-    for source, stage_commit_logs in grouped_stage.items():
-        diff_logs = helper.diff_logs_from_commit_logs(stage_commit_logs)
-
-        invert_diff_logs = helper.diff_logs_from_commit_logs(grouped_invert[source])
-        add_diff_logs = helper.diff_logs_from_commit_logs(grouped_add[source])
-
-        recalculated_logs = []
-
-        for operation, line, payload in diff_logs:
-            # TODO: check if it should handle index increase - example in freeform
-            invert_before_line = [log for log in invert_diff_logs if log[1] < line]
-
-            count = 0
-
-            for operation_invert, _, _ in invert_before_line:
-                if operation_invert == config.ADD:
-                    count -= 1
-                elif operation_invert == config.REMOVE:
-                    count += 1
-
-            increment = 0
-
-            # TODO: the algorithm actualy goes step by step but can be as below (same for invert)
-            # for add_commit_log_by_source in grouped_add[source]:
-            #     add_diff_logs = helper.diff_logs_from_commit_log(
-            #         add_commit_log_by_source
-            #     )
-
-            # for operation_add, line_add, _ in add_diff_logs:
-            #     print(operation_add, line_add, line)
-
-            for operation_add, line_add, _ in add_diff_logs:
-                if line_add <= line + increment:
-                    increment += 1
-                    if operation_add == config.ADD:
-                        count += 1
-                    elif operation_add == config.REMOVE:
-                        count -= 1
-
-            recalculated_logs.append((operation, line + count, payload))
-
-        if dry_run:
-            print(f"Source: {source}:")
-
-            old = helper.diff_logs_from_commit_logs(grouped_target[source])
-
-            diff(
-                helper.build_from_diff_logs(old),
-                helper.build_from_diff_logs([*old, *recalculated_logs]),
-                is_print=True,
-            )
-            print("")
-
-            continue
-
-        # no need to create new file for current version
-        if get_version_name() == version_name:
-            calculated_commit_logs = data["stage"]
-            continue
-
-        timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        target = Path(f".vc/logs/{timestamp}_{version_name}_{source}.diff_log")
-        target.parent.mkdir(exist_ok=True, parents=True)
-        target.write_text(str(recalculated_logs))
-
-        calculated_commit_logs.append(
-            {
-                "uuid": str(uuid.uuid4()),
-                "operation": commit.__name__,
-                "source": str(source),
-                "path": str(target),
-            }
+        make_commit(
+            message=args.message, version_names=args.versions, dry_run=args.dry_run
         )
 
-    id = str(uuid.uuid4())
 
-    calculated_commit = {
-        "id": id,
-        "version": version_name,
-        "message": message,
-        "logs": calculated_commit_logs,
-    }
+def make_commit(message: str, version_names: list[str] | None, dry_run: bool):
+    """Make a new commit from stage. Cannot be applied to previous versions.
+    In order to make a commit - needs to be checked out in specific version"""
 
-    data["commits"][id] = calculated_commit
-    version["logs"].append(id)
+    with open(config.path_meta, "r+", encoding=config.ENCODING) as file:
+        metadata = config.deserialize_metadata(file)
 
-
-def commit(message: str, versions: list, dry_run: bool):
-    if not len(versions):
-        print("specify at least one version")
-        return
-
-    with open(config.path_meta, "r+") as f:
-        data = json.load(f)
-
-        if not len(data["stage"]):
-            print("nothing to commit")
+        if not metadata.stage:
+            print("Nothing to commit")
             return
 
-        for version_name in versions:
-            commit_to_version(
-                version_name=version_name, data=data, message=message, dry_run=dry_run
+        if version_names is None:
+            version_names = [
+                metadata.current_version,
+                *version.get_following_version_names(
+                    metadata.current_version, metadata
+                ),
+            ]
+
+        if metadata.current_version not in version_names:
+            print("Current version needs to be present")
+            return
+
+        if contains_previous_versions(version_names, metadata):
+            print("It is not possible to commit to previous versions")
+            return
+
+        if contains_nonexisting_versions(version_names, metadata):
+            print("Non existing version provided")
+            return
+
+        current_version = version.get_version(
+            version_name=metadata.current_version, metadata=metadata
+        )
+
+        timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+
+        new_commit = dataobjects.Commit(
+            message=message,
+            uuid=str(uuid.uuid4()),
+            logs=metadata.stage,
+            created_at=timestamp,
+        )
+
+        if dry_run:
+            commit_dry_run(
+                metadata=metadata,
+                new_commit=new_commit,
+                current_version=current_version,
+                version_names=version_names,
+            )
+            return
+
+        current_version.commits.append(new_commit)
+
+        inverse.handle_inverse(message, version_names, metadata)
+
+        metadata.stage = []
+
+        file.seek(0)
+        file.write(config.serialize_metadata(metadata))
+        file.truncate()
+
+
+def contains_previous_versions(
+    version_names: list, metadata: dataobjects.Metadata
+) -> bool:
+    """Check if version names are present in previous versions"""
+    first = set(version_names)
+    second = set(version.get_previous_version_names(metadata))
+    return bool(len(first.intersection(second)))
+
+
+def contains_nonexisting_versions(
+    version_names: list, metadata: dataobjects.Metadata
+) -> bool:
+    """Check if version names exist"""
+    first = set(version_names)
+    second = set(version.get_all_version_names(metadata))
+
+    return bool(len(first.difference(second)))
+
+
+def commit_dry_run(
+    metadata: dataobjects.Metadata,
+    new_commit: dataobjects.Commit,
+    current_version: dataobjects.Version,
+    version_names: list,
+) -> None:
+    """Handle dry run for commit by making duplicit metadata object
+    that does not contain the new commit"""
+    duplicate_metadata = deepcopy(metadata)
+    current_version.commits.append(new_commit)
+
+    for version_name in version_names:
+        print(f"Version: {version_name}:")
+
+        old_logs = version.get_version_logs(version_name, duplicate_metadata)
+        new_logs = version.get_version_logs(version_name, metadata)
+
+        for stage_log in metadata.stage:
+            print(f"--- Source: {stage_log.source}: ---")
+
+            diff.print_diff_from_logs(
+                logs_first=old_logs[stage_log.source],
+                logs_second=new_logs[stage_log.source],
             )
 
-        data["stage"] = []
-
-        if not dry_run:
-            f.seek(0)
-            json.dump(data, f, indent=4)
-            f.truncate()
+            print("\n--- End of source ---")
+        print("")

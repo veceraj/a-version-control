@@ -1,17 +1,25 @@
-import config
-import json
+"""Add module"""
+
 import uuid
-from diff import diff
-from join import build_from_logs
+import os
 from datetime import datetime
 from pathlib import Path
-from version import file_version_logs, get_version_name
+import config
+import command
+import diff
+import parsing
+import version
+from utils import path_utils
 
 
-class AddCommand:
+class AddCommand(command.IRunnable):
+    """Add command"""
+
     def __init__(self, subparsers):
         self.parser = subparsers.add_parser("add", help="Add new file to stage")
-        self.parser.add_argument("-p", "--path", required=True, help="Path of the file")
+        self.parser.add_argument(
+            "-p", "--path", nargs="+", required=True, help="Path of files or dirs"
+        )
         self.parser.set_defaults(func=self.run)
 
     def run(self, args):
@@ -19,49 +27,75 @@ class AddCommand:
 
 
 def get_file_changes(file: str):
-    with open(config.path_meta, "r") as f:
-        data = json.load(f)
-        logs = file_version_logs(file=file, version_name=get_version_name(), data=data)
+    """makes diff between argument file and a built file from logs"""
+    with open(config.path_meta, "r", encoding=config.ENCODING) as meta_file:
+        metadata = config.deserialize_metadata(meta_file)
 
-        logs_with_stage = [*logs, *data["stage"]]
+        logs = version.get_file_version_logs(
+            file=file, version_name=metadata.current_version, metadata=metadata
+        )
 
-        listFirst = build_from_logs(logs_with_stage)
+        list_first = parsing.list_from_logs(logs)
 
-        changes = diff(listFirst=listFirst, nameSecond=file)
-
-        return changes
-
-
-def add_log(log):
-    with open(config.path_meta, "r+") as f:
-        data = json.load(f)
-
-        data["stage"].append(log)
-
-        f.seek(0)
-        json.dump(data, f, indent=4)
-        f.truncate()
+        return diff.diff(listFirst=list_first, nameSecond=file)
 
 
-# TODO: handle add same file - with and without changes in same commit
-# TODO: handle multiple files and directories
-def add(file: str):
-    changes = get_file_changes(file)
+def handle_staged_file(file: str, metadata: config.dataobjects.Metadata) -> None:
+    """updates existing file in stage"""
+    updated_stage = []
 
-    if not changes:
+    for log in metadata.stage:
+        if log.source == file:
+            if os.path.isfile(log.path):
+                os.remove(log.path)
+        else:
+            updated_stage.append(log)
+
+    metadata.stage = updated_stage
+
+
+def add(paths: list[str]):
+    """Add new file or directory to stage"""
+
+    files = path_utils.get_files_from_paths(paths)
+
+    if not files:
         return
 
-    timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-    target = Path(f".vc/logs/{timestamp}_{file}.diff_log")
+    with open(config.path_meta, "r+", encoding=config.ENCODING) as meta_file:
+        metadata = config.deserialize_metadata(meta_file)
 
-    target.parent.mkdir(exist_ok=True, parents=True)
-    target.write_text(str(changes))
+        is_changed = False
 
-    add_log(
-        {
-            "uuid": str(uuid.uuid4()),
-            "operation": add.__name__,
-            "source": str(file),
-            "path": str(target),
-        }
-    )
+        for file in files:
+            changes = get_file_changes(file)
+
+            if not changes:
+                continue
+
+            is_changed = True
+
+            handle_staged_file(file=file, metadata=metadata)
+
+            timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+            target = Path(f".vc/logs/{timestamp}_{file}.{config.LOG_EXTENSION}")
+
+            target.parent.mkdir(exist_ok=True, parents=True)
+            target.write_text(str(changes), encoding=config.ENCODING)
+
+            metadata.stage.append(
+                config.dataobjects.Log(
+                    uuid=str(uuid.uuid4()),
+                    operation=add.__name__,
+                    source=str(file),
+                    path=str(target),
+                    created_at=timestamp,
+                )
+            )
+
+        if not is_changed:
+            return
+
+        meta_file.seek(0)
+        meta_file.write(config.serialize_metadata(metadata))
+        meta_file.truncate()

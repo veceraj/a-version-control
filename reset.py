@@ -1,46 +1,50 @@
-import config
-import json
+"""Reset module"""
+
 import os
-from version import get_version_name, file_version_logs
-from join import build_from_logs
-from pathlib import Path
+import config
+import command
+import checkout
 
 
-class ResetCommand:
+class ResetCommand(command.IRunnable):
+    """Reset command"""
+
     def __init__(self, subparsers):
         self.parser = subparsers.add_parser(
-            "reset", help="Reset currently staged files"
+            "reset", help="Reset currently staged files based on current version"
+        )
+        self.parser.add_argument(
+            "-p",
+            "--preserve",
+            action="store_true",
+            help="Whether to preserve changes to files",
         )
         self.parser.set_defaults(func=self.run)
 
     def run(self, args):
-        reset()
+        reset(args.preserve)
 
 
-def reset():
-    with open(config.path_meta, "r+") as f:
-        data = json.load(f)
+def reset(preserve: bool):
+    """Reset the stage"""
+    with open(config.path_meta, "r+", encoding=config.ENCODING) as meta_file:
+        metadata = config.deserialize_metadata(meta_file)
 
-        stage = data["stage"]
-
-        if not len(stage):
-            print("nothing to reset")
+        if not metadata.stage:
+            print("Nothing to reset")
             return
 
-        for log in stage:
-            logs = file_version_logs(
-                file=log["source"], version_name=get_version_name(), data=data
+        if not preserve:
+            checkout.checkout(
+                version_name=metadata.current_version, ignore_current_version=True
             )
-            source = Path(log["source"])
-            with open(source, "w") as file:
-                file.writelines(build_from_logs(logs))
 
-        for log in stage:
-            if os.path.isfile(log["path"]):
-                os.remove(log["path"])
+        for log in metadata.stage:
+            if os.path.isfile(log.path):
+                os.remove(log.path)
 
-        data["stage"] = []
+        metadata.stage = []
 
-        f.seek(0)
-        json.dump(data, f, indent=4)
-        f.truncate()
+        meta_file.seek(0)
+        meta_file.write(config.serialize_metadata(metadata))
+        meta_file.truncate()
