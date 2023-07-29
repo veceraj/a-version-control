@@ -123,4 +123,12 @@ vc stash --apply stash_id
 
 ## Unit testing
 
-This is yet to be implemented but I would like to make a command that will run tests on multiple scenarios.
+This part is currently under work and needs to be implemented.
+Currently only one TestScenario is halfway done.
+
+The test create new files and directories and then automatically delete them inside the project.
+
+``` bash
+# run unit tests from this project
+python run_tests.py
+```
