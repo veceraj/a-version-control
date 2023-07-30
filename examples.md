@@ -121,6 +121,53 @@ vc stash --list
 vc stash --apply stash_id
 ``` -->
 
+## Publishing 
+
+Apart from versioning, this program also adds the ability to publish documents. These are at the moment only narrowed down to markdown documents but it could be possible to implement providers for other formats too. 
+
+Let's create a new file tutorial.md with following code.
+
+Filename: tutorial.md
+
+``` md
+Nyni si ukazeme, jak by vypadal jednoduchy program odpovidajici na otazku smyslu zivota, vesmiru a tak vubec. Tento program najdeme v adresari "/foo/bar.c" a nas budou zajimat radky 10 az 12.
+
+<snippet path="foo/bar.c" start="10" end="12"/>
+
+Vsimneme si, zejmena radku 11, kde vydime prikaz return...
+```
+
+Upon running the publish command it will automaticaly load the code from specified file between lines start and end. Concidered that the file passed as path exists.
+
+``` bash
+# now we can publis it
+
+vc publish -p tutorial.md
+
+# or if we want to publish all md files
+vc publish -p *
+```
+
+
+#### Ouput
+
+The output will be placed under .output directory (which should ignored by the version control).
+After running the publish command. File will be genereted with .output/tutorial.md path and the content will be following:
+
+Filename: .output/tutorial.md
+
+``` md
+Nyni si ukazeme, jak by vypadal jednoduchy program odpovidajici na otazku smyslu zivota, vesmiru a tak vubec. Tento program najdeme v adresari "/foo/bar.c" a nas budou zajimat radky 10 az 12.
+
+10: int foo() {
+11:   return 42;
+12: }
+
+Vsimneme si, zejmena radku 11, kde vydime prikaz return...
+```
+
+At the time of writing this example the start and end refere to same lines in all versions at the moment. But I am working on implementing a feature that will update offsets of the read lines.
+
 ## Unit testing
 
 This part is currently under work and needs to be implemented.

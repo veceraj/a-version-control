@@ -15,6 +15,7 @@ commands = {
     "version": "VersionCommand",
     "reset": "ResetCommand",
     "stash": "StashCommand",
+    "publish": "PublishCommand",
     # "mv": "MvCommand",
 }
 

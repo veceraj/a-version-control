@@ -9,6 +9,7 @@ import dataobjects
 
 path_meta = Path(".vc/metadata.json")
 path_ignore = Path(".vcignore")
+path_publish = Path(".output")
 
 LOG_EXTENSION = "diff_log"
 ADD = "add"
