@@ -17,8 +17,11 @@ def get_files_from_paths(paths: list[str]) -> list[str]:
 
     files = []
 
-    with open(config.path_ignore, "r", encoding=config.ENCODING) as ignore_file:
-        ignore_patterns = ignore_file.read().strip().splitlines()
+    if config.path_ignore.exists():
+        with open(config.path_ignore, "r", encoding=config.ENCODING) as ignore_file:
+            ignore_patterns = ignore_file.read().strip().splitlines()
+    else:
+        ignore_patterns = []
 
     ignore_patterns.extend([".vc", ".output"])
 
