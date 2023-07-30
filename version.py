@@ -87,7 +87,11 @@ def get_version_index(version_name: str, metadata: dataobjects.Metadata):
 
 
 # TODO: can be refactored to parent_id structure
-def get_version_logs(version_name: str, metadata: dataobjects.Metadata):
+def get_version_logs(
+    version_name: str,
+    metadata: dataobjects.Metadata,
+    start_version_name: str | None = None,
+):
     """Get logs for a version"""
     files = defaultdict(list)
 
@@ -96,16 +100,19 @@ def get_version_logs(version_name: str, metadata: dataobjects.Metadata):
     if index is None:
         return files
 
-    for version in metadata.versions[: index + 1]:
+    start_index = get_version_index(start_version_name, metadata)
+
+    start_index = 0 if start_index is None else start_index
+
+    for version in metadata.versions[start_index : index + 1]:
         for commit in version.commits:
             for log in commit.logs:
                 files[log.source].append(log)
 
-    # sort_version_logs_by_timestamp(files)
-
     return files
 
 
+# sort_version_logs_by_timestamp(files)
 def sort_version_logs_by_timestamp(files):
     """Sort logs by timestamp in path"""
     for _, logs in files.items():
@@ -114,7 +121,35 @@ def sort_version_logs_by_timestamp(files):
 
 
 def get_file_version_logs(
-    file: str, version_name: str, metadata: dataobjects.Metadata
+    file: str,
+    version_name: str,
+    metadata: dataobjects.Metadata,
+    start_version_name: str | None = None,
 ) -> list[dataobjects.Log]:
     """ "Get version log by file"""
-    return get_version_logs(version_name, metadata)[file]
+    return get_version_logs(
+        version_name=version_name,
+        metadata=metadata,
+        start_version_name=start_version_name,
+    )[file]
+
+
+def get_version_of_last_update_until_version(
+    file_path: str, version_name: str, metadata: dataobjects.Metadata
+) -> dataobjects.Version | None:
+    """Get the latest version where file has been updated until specified version"""
+
+    index = get_version_index(version_name, metadata)
+
+    if index is None:
+        return None
+
+    reversed_versions = reversed(metadata.versions[: index + 1])
+
+    for version in reversed_versions:
+        if any(
+            file_path == log.source for commit in version.commits for log in commit.logs
+        ):
+            return version
+
+    return None

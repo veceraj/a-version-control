@@ -22,6 +22,7 @@
 - [ ] add return types to all functions
 - [ ] handle exceptions
 - [ ] add tests
+- [ ] introduce log iterator
  
 ## Bug Issues
 

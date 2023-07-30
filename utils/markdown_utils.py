@@ -3,6 +3,9 @@
 import os
 import re
 import config
+import dataobjects
+import parsing
+import version
 
 
 def parse_file(path: str) -> str:
@@ -15,19 +18,32 @@ def parse_file(path: str) -> str:
         r'<snippet path="(?P<path>[^"]+)" start="(?P<start>\d+)" end="(?P<end>\d+)"/>'
     )
 
+    with open(config.path_meta, "r", encoding=config.ENCODING) as meta_file:
+        metadata = config.deserialize_metadata(meta_file)
+
+    last_version = version.get_version_of_last_update_until_version(
+        file_path=path, version_name=metadata.current_version, metadata=metadata
+    )
+
     # replace using the pattern and replace_tag function
-    content = re.sub(pattern, replace_tag, content)
+    content = re.sub(
+        pattern, lambda match: replace_tag(match, last_version, metadata), content
+    )
 
     return content
 
 
-def replace_tag(match):
+def replace_tag(
+    match, last_version_document: dataobjects.Version, metadata: dataobjects.Metadata
+):
     """Get data using match and return sniped with code"""
     path = match.group("path")
     line_start = int(match.group("start"))
     line_end = int(match.group("end"))
 
-    snippet_lines = generate_code_snippet(path, line_start, line_end)
+    snippet_lines = generate_code_snippet(
+        path, line_start, line_end, last_version_document, metadata
+    )
 
     numbered_snippet = []
     for i, line in enumerate(snippet_lines, start=line_start):
@@ -42,8 +58,24 @@ def replace_tag(match):
     return f"``` {language}\n{string_lines}\n```"
 
 
-def generate_code_snippet(path, line_start, line_end):
+def generate_code_snippet(
+    path,
+    line_start,
+    line_end,
+    last_version_document: dataobjects.Version,
+    metadata: dataobjects.Metadata,
+):
     """Read lines from path"""
+
+    logs = version.get_file_version_logs(
+        file=path,
+        version_name=metadata.current_version,
+        metadata=metadata,
+        start_version_name=last_version_document.name,
+    )
+
+    # determine how to increase/decrease line start and end
+    file_list = parsing.list_from_logs(logs)
 
     with open(path, "r", encoding=config.ENCODING) as file:
         lines = file.readlines()

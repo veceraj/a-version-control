@@ -148,8 +148,12 @@ def commit_dry_run(
     for version_name in version_names:
         print(f"Version: {version_name}:")
 
-        old_logs = version.get_version_logs(version_name, duplicate_metadata)
-        new_logs = version.get_version_logs(version_name, metadata)
+        old_logs = version.get_version_logs(
+            version_name=version_name, metadata=duplicate_metadata
+        )
+        new_logs = version.get_version_logs(
+            version_name=version_name, metadata=metadata
+        )
 
         for stage_log in metadata.stage:
             print(f"--- Source: {stage_log.source}: ---")
