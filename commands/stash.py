@@ -1,9 +1,9 @@
 import config
-import command
+from commands import base_command
 from pathlib import Path
 
 
-class StashCommand(command.IRunnable):
+class StashCommand(base_command.IRunnable):
     def __init__(self, subparsers):
         self.parser = subparsers.add_parser(
             "stash", help="Stash files or apply stash and list stashes"

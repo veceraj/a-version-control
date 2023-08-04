@@ -7,7 +7,7 @@ from pathlib import Path
 import ast
 import config
 import dataobjects
-import version
+from commands import version
 
 
 def handle_inverse(

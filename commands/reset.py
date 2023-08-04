@@ -2,11 +2,10 @@
 
 import os
 import config
-import command
-import checkout
+from commands import base_command, checkout
 
 
-class ResetCommand(command.IRunnable):
+class ResetCommand(base_command.IRunnable):
     """Reset command"""
 
     def __init__(self, subparsers):

@@ -1,14 +1,11 @@
 """Diff module"""
 
 import config
-import command
-import parsing
-import version
-from _diff import diff as _diff
-from _patch import patch
+from commands import base_command, version
+from utils import diff_utils, patch_utils, parsing_utils
 
 
-class DiffCommand(command.IRunnable):
+class DiffCommand(base_command.IRunnable):
     """Diff command"""
 
     def __init__(self, subparsers):
@@ -38,9 +35,9 @@ class DiffCommand(command.IRunnable):
 
         if args.files:
             log = diff(
-                nameFirst=args.from_version,
-                nameSecond=args.to_version,
-                printPatch=True,
+                name_first=args.from_version,
+                name_second=args.to_version,
+                print_patch=True,
             )
             print(log)
             return
@@ -49,28 +46,36 @@ class DiffCommand(command.IRunnable):
 
 
 def diff(
-    nameFirst=None,
-    nameSecond=None,
-    listFirst: list = [],
-    listSecond: list = [],
-    printPatch: bool = False,
+    name_first=None,
+    name_second=None,
+    list_first: list = None,
+    list_second: list = None,
+    print_patch: bool = False,
 ):
-    if nameFirst:
-        with open(nameFirst, "r") as f:
+    """Diff function that hadnles multiple scenarios"""
+
+    if list_first is None:
+        list_first = []
+
+    if list_second is None:
+        list_second = []
+
+    if name_first:
+        with open(name_first, "r", encoding=config.ENCODING) as f:
             first = f.readlines()
     else:
-        first = listFirst
+        first = list_first
 
-    if nameSecond:
-        with open(nameSecond, "r") as f:
+    if name_second:
+        with open(name_second, "r", encoding=config.ENCODING) as f:
             second = f.readlines()
     else:
-        second = listSecond
+        second = list_second
 
-    log = _diff(first, second)
+    log = diff_utils.diff(first, second)
 
-    if printPatch:
-        patched = patch(first, log)
+    if print_patch:
+        patched = patch_utils.patch(first, log)
         print("".join(patched))
 
     return log
@@ -95,7 +100,7 @@ def print_diff_from_logs(
     logs_first: list[config.dataobjects.Log], logs_second: list[config.dataobjects.Log]
 ) -> None:
     """Print changes from list of logs"""
-    list_first = parsing.list_from_logs(logs_first)
-    list_second = parsing.list_from_logs(logs_second)
+    list_first = parsing_utils.list_from_logs(logs_first)
+    list_second = parsing_utils.list_from_logs(logs_second)
 
-    _diff(list_first, list_second, is_print=True)
+    diff_utils.diff(list_first, list_second, is_print=True)

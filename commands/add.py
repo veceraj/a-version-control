@@ -5,14 +5,11 @@ import os
 from datetime import datetime
 from pathlib import Path
 import config
-import command
-import diff
-import parsing
-import version
-from utils import path_utils
+from commands import base_command, version, diff
+from utils import path_utils, parsing_utils
 
 
-class AddCommand(command.IRunnable):
+class AddCommand(base_command.IRunnable):
     """Add command"""
 
     def __init__(self, subparsers):
@@ -35,9 +32,9 @@ def get_file_changes(file: str):
             file=file, version_name=metadata.current_version, metadata=metadata
         )
 
-        list_first = parsing.list_from_logs(logs)
+        list_first = parsing_utils.list_from_logs(logs)
 
-        return diff.diff(listFirst=list_first, nameSecond=file)
+        return diff.diff(list_first=list_first, name_second=file)
 
 
 def handle_staged_file(file: str, metadata: config.dataobjects.Metadata) -> None:

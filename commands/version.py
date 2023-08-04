@@ -3,11 +3,11 @@ from collections import defaultdict
 from datetime import datetime
 import uuid
 import config
-import command
 import dataobjects
+from commands import base_command
 
 
-class VersionCommand(command.IRunnable):
+class VersionCommand(base_command.IRunnable):
     """Version Command"""
 
     def __init__(self, subparsers):

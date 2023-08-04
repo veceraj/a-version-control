@@ -1,12 +1,12 @@
 """Checkout module"""
 
 import config
-import command
-import parsing
-from version import get_version, create_version, get_version_logs
+from utils import parsing_utils
+from commands import base_command
+from commands.version import get_version, create_version, get_version_logs
 
 
-class CheckoutCommand(command.IRunnable):
+class CheckoutCommand(base_command.IRunnable):
     """Checkout command"""
 
     def __init__(self, subparsers):
@@ -87,5 +87,5 @@ def update_files(version_name: str, metadata: config.dataobjects.Metadata):
     for str_file, logs in version_logs.items():
         if logs:
             with open(str_file, "w", encoding=config.ENCODING) as file:
-                for line in parsing.list_from_logs(logs):
+                for line in parsing_utils.list_from_logs(logs):
                     file.write(line)

@@ -2,7 +2,7 @@
 
 import ast
 import config
-from _patch import patch
+from utils import patch_utils
 
 
 def list_from_logs(logs: list[config.dataobjects.Log]) -> list:
@@ -47,6 +47,6 @@ def list_from_logs(logs: list[config.dataobjects.Log]) -> list:
         offset += current_offset
 
         # for each iteration apply difflog to update the file
-        final = patch(final, updated_difflog)
+        final = patch_utils.patch(final, updated_difflog)
 
     return final

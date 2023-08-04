@@ -29,7 +29,7 @@ class VersionControl:
         self.commands = {}
 
         for module_name, attr in commands.items():
-            module = importlib.import_module(module_name)
+            module = importlib.import_module(f"commands.{module_name}")
             command_module = getattr(module, attr)
             self.commands[module_name] = command_module(self.subparsers)
 

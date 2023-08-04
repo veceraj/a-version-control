@@ -4,14 +4,12 @@ import uuid
 from copy import deepcopy
 from datetime import datetime
 import config
-import command
 import dataobjects
-import diff
-import inverse
-import version
+from utils import inverse_utils
+from commands import base_command, version, diff
 
 
-class CommitCommand(command.IRunnable):
+class CommitCommand(base_command.IRunnable):
     """Commit command"""
 
     def __init__(self, subparsers):
@@ -106,7 +104,7 @@ def make_commit(message: str, version_names: list[str] | None, dry_run: bool):
 
         current_version.commits.append(new_commit)
 
-        inverse.handle_inverse(message, version_names, metadata)
+        inverse_utils.handle_inverse(message, version_names, metadata)
 
         metadata.stage = []
 

@@ -4,8 +4,21 @@ import os
 import re
 import config
 import dataobjects
-import parsing
-import version
+from commands import version
+from utils import parsing_utils
+
+
+def output_file(path: str) -> str:
+    """Save Markdown file to publishing output directory and return path to the file"""
+
+    content = parse_file(path)
+
+    output_path = config.path_publish.joinpath(path)
+
+    with open(output_path, "w", encoding=config.ENCODING) as file:
+        file.write(content)
+
+    return output_path
 
 
 def parse_file(path: str) -> str:
@@ -75,7 +88,7 @@ def generate_code_snippet(
     )
 
     # determine how to increase/decrease line start and end
-    file_list = parsing.list_from_logs(logs)
+    file_list = parsing_utils.list_from_logs(logs)
 
     with open(path, "r", encoding=config.ENCODING) as file:
         lines = file.readlines()

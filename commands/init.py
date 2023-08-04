@@ -1,10 +1,9 @@
 """Init module"""
 import config
-import command
-from version import create_version
+from commands import base_command, version
 
 
-class InitCommand(command.IRunnable):
+class InitCommand(base_command.IRunnable):
     """Init command"""
 
     def __init__(self, subparsers):
@@ -23,7 +22,7 @@ class InitCommand(command.IRunnable):
             current_version=args.version_name,
             stage=[],
             stash=[],
-            versions=[create_version(args.version_name)],
+            versions=[version.create_version(args.version_name)],
         )
 
         config.path_meta.parent.mkdir(exist_ok=True, parents=True)
