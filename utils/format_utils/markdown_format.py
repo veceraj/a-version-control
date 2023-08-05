@@ -27,34 +27,68 @@ def parse_file(path: str) -> str:
     with open(path, "r", encoding=config.ENCODING) as file:
         content = file.read()
 
-    pattern = (
+    pattern_snippet = (
         r'<snippet path="(?P<path>[^"]+)" start="(?P<start>\d+)" end="(?P<end>\d+)"/>'
     )
 
-    with open(config.path_meta, "r", encoding=config.ENCODING) as meta_file:
-        metadata = config.deserialize_metadata(meta_file)
-
-    last_version = version.get_version_of_last_update_until_version(
-        file_path=path, version_name=metadata.current_version, metadata=metadata
+    pattern_snippet_link = (
+        r'<snippet-link path="(?P<path>[^"]+)" line="(?P<line>\d+)"/>'
     )
+
+    if config.path_meta.exists():
+        with open(config.path_meta, "r", encoding=config.ENCODING) as meta_file:
+            metadata = config.deserialize_metadata(meta_file)
+
+        last_version = version.get_version_of_last_update_until_version(
+            file_path=path, version_name=metadata.current_version, metadata=metadata
+        )
+    else:
+        metadata = None
+        last_version = None
 
     # replace using the pattern and replace_tag function
     content = re.sub(
-        pattern, lambda match: replace_tag(match, last_version, metadata), content
+        pattern_snippet,
+        lambda match: replace_tag(match, last_version, metadata),
+        content,
+    )
+
+    content = re.sub(
+        pattern_snippet_link,
+        lambda match: replace_link(match, last_version, metadata),
+        content,
     )
 
     return content
 
 
+def replace_link(
+    match,
+    last_version_document: dataobjects.Version | None,
+    metadata: dataobjects.Metadata | None,
+):
+    """Get data using match and return line number"""
+    path = match.group("path")
+    line = int(match.group("line"))
+
+    _, line, _ = generate_code_snippet(
+        path, line, line, last_version_document, metadata
+    )
+
+    return str(line)
+
+
 def replace_tag(
-    match, last_version_document: dataobjects.Version, metadata: dataobjects.Metadata
+    match,
+    last_version_document: dataobjects.Version | None,
+    metadata: dataobjects.Metadata | None,
 ):
     """Get data using match and return sniped with code"""
     path = match.group("path")
     line_start = int(match.group("start"))
     line_end = int(match.group("end"))
 
-    snippet_lines = generate_code_snippet(
+    snippet_lines, _, _ = generate_code_snippet(
         path, line_start, line_end, last_version_document, metadata
     )
 
@@ -75,27 +109,24 @@ def generate_code_snippet(
     path,
     line_start,
     line_end,
-    last_version_document: dataobjects.Version,
-    metadata: dataobjects.Metadata,
+    last_version_document: dataobjects.Version | None,
+    metadata: dataobjects.Metadata | None,
 ):
     """Read lines from path"""
-
-    logs = version.get_file_version_logs(
-        file=path,
-        version_name=metadata.current_version,
-        metadata=metadata,
-        start_version_name=last_version_document.name,
-    )
-
-    # determine how to increase/decrease line start and end
-    file_list = parsing_utils.list_from_logs(logs)
+    if last_version_document is not None:
+        logs = version.get_file_version_logs(
+            file=path,
+            version_name=metadata.current_version,
+            metadata=metadata,
+            start_version_name=last_version_document.name,
+        )
 
     with open(path, "r", encoding=config.ENCODING) as file:
         lines = file.readlines()
 
     snippet_lines = lines[line_start - 1 : line_end]
 
-    return snippet_lines
+    return (snippet_lines, line_start, line_end)
 
 
 def get_programming_language(file_path):

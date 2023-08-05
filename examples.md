@@ -123,7 +123,7 @@ vc stash --apply stash_id
 
 ## Publishing 
 
-Apart from versioning, this program also adds the ability to publish documents. These are at the moment only narrowed down to markdown documents but it could be possible to implement providers for other formats too. 
+Apart from versioning, this program also adds the ability to publish documents. These are at the moment only narrowed down to markdown documents but it could be possible to implement providers for other formats too. This command work also without initialized repository.
 
 Let's create a new file tutorial.md with following code.
 
@@ -142,12 +142,31 @@ Upon running the publish command it will automaticaly load the code from specifi
 ``` bash
 # now we can publis it
 
-vc publish -p tutorial.md
+vc publish -p tutorial.md -f md
 
 # or if we want to publish all md files
 vc publish -p *
+
+# choosing pdf as a format
+vc publish -p input.md -f pdf
+
+# pdf with templte
+vc publish -p input.md -f pdf -t template/kidiplom.tex
 ```
 
+Inside the input file we can also define metadata which are used at certain places of the tempalte. This is done in the YAML format.
+
+``` md
+---
+link-citations: true
+title: The title
+author: the aithor
+---
+
+# Title
+
+...
+```
 
 #### Ouput
 
@@ -167,6 +186,12 @@ Vsimneme si, zejmena radku 11, kde vydime prikaz return...
 ```
 
 At the time of writing this example the start and end refere to same lines in all versions at the moment. But I am working on implementing a feature that will update offsets of the read lines.
+
+### suported Markdown syntax with Pandoc
+
+This following book was helpfull decribing how pandoc works and can also be used a reference to all the features that are supported:
+
+"Mailund, T. (2019). Introducing markdown and pandoc: Using markup language and document converter. Apress."
 
 ## Unit testing
 

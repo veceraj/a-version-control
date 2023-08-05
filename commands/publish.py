@@ -19,14 +19,15 @@ class PublishCommand(base_command.IRunnable):
         self.parser.add_argument(
             "-f", "--format", required=True, help="Format of the file"
         )
+        self.parser.add_argument("-t", "--template", help="Path to template file")
 
         self.parser.set_defaults(func=self.run)
 
     def run(self, args):
-        publish(args.path, args.format)
+        publish(args.path, args.format, args.template)
 
 
-def publish(paths: list[str], format_type: str):
+def publish(paths: list[str], format_type: str, template: str | None):
     """Publish markdown files to output location"""
 
     files = path_utils.get_files_from_paths_by_extension(paths, ".md")
@@ -38,15 +39,15 @@ def publish(paths: list[str], format_type: str):
     config.path_publish.mkdir(exist_ok=True, parents=True)
 
     for file_path in files:
-        parse_file(path=file_path, format_type=format_type)
+        parse_file(path=file_path, format_type=format_type, template=template)
 
 
-def parse_file(path: str, format_type: str) -> str:
+def parse_file(path: str, format_type: str, template: str | None) -> str:
     """Parse file by determining format and return path to ouput file"""
 
     if format_type == "md":
-        return markdown_format.output_file(path)
+        return markdown_format.output_file(path=path)
     elif format_type == "pdf":
-        return pdf_format.output_file(path)
+        return pdf_format.output_file(path=path, template=template)
 
     raise ValueError(f"Unknown format type: {format_type}")

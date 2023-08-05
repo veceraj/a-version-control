@@ -14,9 +14,9 @@ commands = {
     "diff": "DiffCommand",
     "version": "VersionCommand",
     "reset": "ResetCommand",
-    "stash": "StashCommand",
-    "publish": "PublishCommand",
+    # "stash": "StashCommand",
     # "mv": "MvCommand",
+    "publish": "PublishCommand",
 }
 
 
@@ -41,7 +41,7 @@ class VersionControl:
 
         args = self.parser.parse_args()
 
-        if not config.path_meta.is_file() and not args.command == "init":
+        if not config.path_meta.is_file() and not args.command in ("init", "publish"):
             print("Version Control not initialized.")
             return
 

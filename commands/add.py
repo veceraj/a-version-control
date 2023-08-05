@@ -13,7 +13,7 @@ class AddCommand(base_command.IRunnable):
     """Add command"""
 
     def __init__(self, subparsers):
-        self.parser = subparsers.add_parser("add", help="Add new file to stage")
+        self.parser = subparsers.add_parser("add", help="Add file to stage")
         self.parser.add_argument(
             "-p", "--path", nargs="+", required=True, help="Path of files or dirs"
         )
